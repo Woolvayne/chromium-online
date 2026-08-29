@@ -1,0 +1,50 @@
+# ============================================================================
+# WebPilot AI — docker-compose
+# Startet: PostgreSQL + WebPilot AI (Next.js + Chromium)
+#
+#   cp .env.example .env   # Werte anpassen (ENCRYPTION_KEY setzen!)
+#   docker compose up --build
+#   → http://localhost:3000
+# ============================================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Wichtig: innerhalb von Compose heißt der DB-Host "db"
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      DEFAULT_AI_PROVIDER: ${DEFAULT_AI_PROVIDER:-}
+      DEFAULT_AI_API_KEY: ${DEFAULT_AI_API_KEY:-}
+      DEFAULT_AI_BASE_URL: ${DEFAULT_AI_BASE_URL:-}
+      DEFAULT_AI_MODEL: ${DEFAULT_AI_MODEL:-}
+      BROWSER_HEADLESS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Chromium benötigt ausreichend Shared Memory
+    shm_size: "1gb"
+
+volumes:
+  db_data:
